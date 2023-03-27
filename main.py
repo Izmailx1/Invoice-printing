@@ -1,4 +1,3 @@
-import sys
 import docx
 from docx2pdf import convert
 import win32print
@@ -6,6 +5,7 @@ import win32api
 import PySimpleGUI as sg
 from datetime import date
 from docx.shared import Inches
+import csv
 
 
 def doc_edit(items_list):
@@ -72,17 +72,24 @@ def print_document(num_of_lists: str):
 
     win32print.ClosePrinter(handle)
 
+list_items = {}
 
-with open('files/list_items.txt', 'r', encoding='UTF-8') as f:
-    list_item = f.read()
-list_items = list_item.split('\n')
+with open("files/list_items.csv", encoding='utf-8') as r_file:
+    file_reader = csv.DictReader(r_file, delimiter = ";")
+    for row in file_reader:
+        list_items[str(row["name"])] = row["price"]
+keys = list(list_items)
+
+# with open('files/list_items.txt', 'r', encoding='UTF-8') as f:
+#     list_item = f.read()
+# list_items = list_item.split('\n')
 
 print_items = []
 res_s = ''
 
 layout = [
     [sg.Text('Выбери наименование', size=(20, 1), font='Lucida', justification='left')],
-    [sg.Combo(list_items, default_value=list_items[0], key='_list_items_')],
+    [sg.Combo(keys, default_value=keys[0], key='_list_items_', enable_events=True)],
     [sg.Text('Введи количество', size=(20, 1), font='Lucida', justification='left')],
     [sg.InputText(key='_quantity_')],
     [sg.Text('Введи цену', size=(20, 1), font='Lucida', justification='left')],
@@ -130,5 +137,7 @@ while True:
     if event == '_print_':
         doc_edit(print_items)
         sg.popup('Печать упаковочного листа', res_s)
-        print_document(1)
+        print_document(2)
+    if event == '_list_items_':
+        window['_price_'].update(list_items[f"{values['_list_items_']}"])
 

@@ -1,108 +1,116 @@
-import docx
-from docx2pdf import convert
-import win32print
-import win32api
+import datetime
+import openpyxl as xl
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Border, Side, Alignment, Font
 import PySimpleGUI as sg
-from datetime import date
-from docx.shared import Inches
-import csv
+import os
 
 
-def doc_edit(items_list):
+def generate_invoice(item_list, item_count, container='x', name='Имя'):
+    invoice = Workbook()
+    invoice_sheet = invoice.active
+    invoice_sheet.row_dimensions[2].height = 30
+    invoice_sheet.column_dimensions['A'].width = 4
+    invoice_sheet.column_dimensions['B'].width = 50
+    invoice_sheet.column_dimensions['C'].width = 8
+    invoice_sheet.column_dimensions['D'].width = 5.5
+    invoice_sheet.column_dimensions['E'].width = 4
+    invoice_sheet.column_dimensions['F'].width = 7
+    invoice_sheet.column_dimensions['G'].width = 8
+    invoice_sheet.merge_cells('A1:G1')
+    date = datetime.date.today()
+    invoice_sheet.cell(1, 1).value = f'Накладная от {date} Контейнер {container}'
+    invoice_sheet.cell(2, 2).value = f'Наименование'
+    invoice_sheet.cell(2, 3).value = f'Произв.'
+    invoice_sheet.cell(2, 4).value = f'Ед.'
+    invoice_sheet.cell(2, 5).value = f'Кол-во'
+    invoice_sheet.cell(2, 6).value = f'Цена'
+    invoice_sheet.cell(2, 7).value = f'Сумма'
 
-    res = 0
-    doc = docx.Document()
-    doc.add_paragraph(f'Накладная от {date.today()}')
+    for i in range(len(item_count)):
+        invoice_sheet.cell(invoice_sheet.max_row + 1, 1).value = '=ROW()-ROW($A$2)'
+        invoice_sheet.cell(invoice_sheet.max_row, 2).value = item_count[i][0]
+        invoice_sheet.cell(invoice_sheet.max_row, 3).value = item_list[item_count[i][0]][0]
+        invoice_sheet.cell(invoice_sheet.max_row, 4).value = item_list[item_count[i][0]][1]
+        invoice_sheet.cell(invoice_sheet.max_row, 5).value = item_count[i][1]
+        invoice_sheet.cell(invoice_sheet.max_row, 6).value = item_count[i][2]
+        invoice_sheet.cell(invoice_sheet.max_row, 7).value = f'=E{invoice_sheet.max_row}*F{invoice_sheet.max_row}'
 
-    table = doc.add_table(rows=len(items_list) + 1, cols=5)
-    table.style = 'Table Grid'
+    invoice_sheet.cell(invoice_sheet.max_row + 1, 5).value = 'Итого:'
+    invoice_sheet.merge_cells(start_row=invoice_sheet.max_row, start_column=5,
+                              end_row=invoice_sheet.max_row, end_column=6)
+    invoice_sheet.cell(invoice_sheet.max_row, 7).value = f'=SUM(G3:G{invoice_sheet.max_row - 1})'
 
-    widths = (Inches(0.3), Inches(6), Inches(0.8), Inches(0.6), Inches(1.5))
-    for row in table.rows:
-        for idx, width in enumerate(widths):
-            row.cells[idx].width = width
+    for i in range(1, 8):
+        invoice_sheet.cell(2, i).alignment = Alignment(horizontal='center', vertical="center")
+        invoice_sheet.cell(2, i).fill = PatternFill('solid', fgColor='AFEEEE')
 
-    cell = table.cell(0, 0)
-    cell.width = Inches(0.1)
-    cell.text = '№'
-    cell = table.cell(0, 1)
-    cell.width = Inches(2)
-    cell.text = 'Наименование'
-    cell = table.cell(0, 2)
-    cell.text = 'Кол-во'
-    cell = table.cell(0, 3)
-    cell.text = 'Цена'
-    cell = table.cell(0, 4)
-    cell.text = 'Сумма'
+    for row in range(1, invoice_sheet.max_row + 1):
+        for col in range(1, 8):
+            invoice_sheet.cell(row, col).font = font
+            invoice_sheet.cell(row, col).border = border
+            invoice_sheet.cell(row, col).alignment = Alignment(wrap_text=True)
 
-    for row in range(1, len(items_list) + 1):
-        cell = table.cell(row, 0)
-        cell.text = str(row)
-        cell = table.cell(row, 1)
-        cell.text = items_list[row - 1][0]
-        cell = table.cell(row, 2)
-        cell.text = str(items_list[row - 1][1])
-        cell = table.cell(row, 3)
-        cell.text = str(items_list[row - 1][2])
-        cell = table.cell(row, 4)
-        cell.text = str(int(items_list[row - 1][1]) * int(items_list[row - 1][2]))
-        res += int(items_list[row - 1][1]) * int(items_list[row - 1][2])
+    invoice.save(f'{desktop}\{date}_{container}_{name}.xlsx')
 
-    doc.add_paragraph(f'Итого: {res}руб')
-    doc.save('files/doc.docx')
 
-def print_document(num_of_lists: str):
-    convert('files/doc.docx')
-    name = 'HP LaserJet Professional M1132 MFP'
-    mode = 1
-    input_pdf = 'files\doc.pdf'
-    win32print.SetDefaultPrinterW(name)
-    win32print.SetDefaultPrinter(name)
-    printdefaults = {"DesiredAccess": win32print.PRINTER_ALL_ACCESS}
-    handle = win32print.OpenPrinter(name, printdefaults)
-    level = 2
-    attributes = win32print.GetPrinter(handle, level)
-    attributes['pDevMode'].Duplex = mode
+desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
+thins = Side(border_style="thin", color="000000")
+font = Font(name='Bahnschrift SemiBold', size=10)
+border = Border(top=thins, bottom=thins, left=thins, right=thins)
+price = xl.load_workbook('D:\WORK\Avtoviraz\Прайс.xlsx', data_only=True)
+price_sheet = price['Лист1']
+items = {}
 
-    win32print.SetPrinter(handle, level, attributes, 0)
-    win32print.GetPrinter(handle, level)['pDevMode'].Duplex
+for i in range(1, price_sheet.max_row + 1):
+    try:
+        if isinstance(int(price_sheet.cell(i, 1).value), int):
+            temp = []
+            for j in range(2, 8):
+                temp.append(price_sheet.cell(i, j).value)
+            items[temp[0]] = temp[1:]
+    except:
+        pass
 
-    for i in range(int(num_of_lists)):
-        win32api.ShellExecute(1, 'print', input_pdf, '.', '/manualstoprint', 0)
-
-    win32print.ClosePrinter(handle)
-
-list_items = {}
-
-with open("files/list_items.csv", encoding='utf-8') as r_file:
-    file_reader = csv.DictReader(r_file, delimiter = ";")
-    for row in file_reader:
-        list_items[str(row["name"])] = row["price"]
-keys = list(list_items)
-
-# with open('files/list_items.txt', 'r', encoding='UTF-8') as f:
-#     list_item = f.read()
-# list_items = list_item.split('\n')
-
+keys = list(items)
 print_items = []
 res_s = ''
+headings = ['            Наименование                  ', 'Количество', 'Цена']
+background_text_color = '#FFEBCD'
+text_text_color = '#808080'
+background_input_color = '#FFFFE0'
+background_button_color = '#3CB371'
 
 layout = [
-    [sg.Text('Выбери наименование', size=(20, 1), font='Lucida', justification='left')],
-    [sg.Combo(keys, default_value=keys[0], key='_list_items_', enable_events=True)],
-    [sg.Text('Введи количество', size=(20, 1), font='Lucida', justification='left')],
-    [sg.InputText(key='_quantity_')],
-    [sg.Text('Введи цену', size=(20, 1), font='Lucida', justification='left')],
-    [sg.InputText(key='_price_')],
-    [sg.Button('Добавить в накладную', font=('Times New Roman', 12), key='_add_')],
-    [sg.Text('Ваша накладная', size=(20, 1), font='Lucida', justification='left')],
-    [sg.Output(size=(88, 20), key='_output_')],
-    [sg.Button('Сбросить', font=('Times New Roman', 12), key='_reset_'),
-     sg.Button('Печатать накладную', font=('Times New Roman', 12), key='_print_')]
+    [sg.Text('Имя клиента', size=(20, 1), font='Bahnschrift', justification='left', background_color=background_text_color, text_color=text_text_color)],
+    [sg.InputText(key='_client_', size=(15, 10), background_color=background_input_color)],
+    [sg.Text('Номер контейнера (если есть)', size=(30, 1), font='Bahnschrift', justification='left', background_color=background_text_color, text_color=text_text_color)],
+    [sg.InputText(key='_container_', size=(10, 10), background_color=background_input_color)],
+    [sg.Text('Выбери наименование', size=(20, 1), font='Bahnschrift', justification='left', background_color=background_text_color, text_color=text_text_color)],
+    [sg.Combo(keys, default_value=keys[0], key='_list_items_', enable_events=True, background_color=background_input_color)],
+    [sg.Text('Введи количество', size=(20, 1), font='Bahnschrift', justification='left', background_color=background_text_color, text_color=text_text_color)],
+    [sg.InputText(key='_quantity_', background_color=background_input_color)],
+    [sg.Text('Введи цену', size=(20, 1), font='Bahnschrift', justification='left', background_color=background_text_color, text_color=text_text_color)],
+    [sg.InputText(key='_price_', background_color=background_input_color)],
+    [sg.Button('Добавить в накладную', font=('Bahnschrift SemiBold', 12), key='_add_', button_color=background_button_color)],
+    [sg.Table(values=print_items, headings=headings, max_col_width=95, background_color=background_input_color,
+                    size=(888, 80),
+                    justification='center',
+                    num_rows=20,
+                    auto_size_columns=True,
+                    key='-TABLE-',
+                    expand_x=True,
+                    expand_y=True,
+                    row_height=15,
+                    text_color='#000000',
+                    header_background_color='#FAEBD7',
+                    font=('Bahnschrift SemiBold', 11))],
+    [sg.Button('Сбросить', font=('Bahnschrift SemiBold', 12), key='_reset_', button_color='#FF7F50'),
+     sg.Button('Печатать накладную', font=('Bahnschrift SemiBold', 12), key='_print_', button_color=background_button_color)]
 ]
 
-
-window = sg.Window('File Compare', layout)
+window = sg.Window('Накладная', layout, resizable=True, background_color='#FFEBCD',
+                   font=('Bahnschrift SemiBold', 10), size=(1000, 700))
 
 while True:
     event, values = window.read()
@@ -127,17 +135,16 @@ while True:
         window['_price_'].update('')
         res_s += s
         res_s += '\n'
-        print(s)
+        window['-TABLE-'].update(print_items)
 
     if event == '_reset_':
-        window['_output_'].update('')
+        window['-TABLE-'].update('')
         print_items = []
         res_s = ''
 
     if event == '_print_':
-        doc_edit(print_items)
-        sg.popup('Печать упаковочного листа', res_s)
-        print_document(2)
-    if event == '_list_items_':
-        window['_price_'].update(list_items[f"{values['_list_items_']}"])
+        generate_invoice(items, print_items, values['_container_'], values['_client_'])
+        sg.popup('Накладная сохранена', res_s, background_color=background_input_color, text_color='#000000')
 
+    if event == '_list_items_':
+        window['_price_'].update(items[f"{values['_list_items_']}"][4])

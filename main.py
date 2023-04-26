@@ -43,7 +43,7 @@ def generate_invoice(item_list, item_count, container='x', name='Имя'):
 
     for i in range(1, 8):
         invoice_sheet.cell(2, i).alignment = Alignment(horizontal='center', vertical="center")
-        invoice_sheet.cell(2, i).fill = PatternFill('solid', fgColor='AFEEEE')
+        invoice_sheet.cell(2, i).fill = PatternFill('solid', fgColor='FFDEAD')
 
     for row in range(1, invoice_sheet.max_row + 1):
         for col in range(1, 8):
@@ -94,7 +94,7 @@ layout = [
     [sg.InputText(key='_price_', background_color=background_input_color)],
     [sg.Button('Добавить в накладную', font=('Bahnschrift SemiBold', 12), key='_add_', button_color=background_button_color)],
     [sg.Table(values=print_items, headings=headings, max_col_width=95, background_color=background_input_color,
-                    size=(888, 80),
+                    size=(900, 80),
                     justification='center',
                     num_rows=20,
                     auto_size_columns=True,
@@ -106,11 +106,13 @@ layout = [
                     header_background_color='#FAEBD7',
                     font=('Bahnschrift SemiBold', 11))],
     [sg.Button('Сбросить', font=('Bahnschrift SemiBold', 12), key='_reset_', button_color='#FF7F50'),
-     sg.Button('Печатать накладную', font=('Bahnschrift SemiBold', 12), key='_print_', button_color=background_button_color)]
+     sg.Button('Редактировать', font=('Bahnschrift SemiBold', 12), key='_edit_', button_color='#FF7F50'),
+     sg.Button('Сохранить изменения', font=('Bahnschrift SemiBold', 12), key='_save_', button_color=background_button_color)],
+    [sg.Button('Сохранить накладную', font=('Bahnschrift SemiBold', 12), key='_print_', button_color=background_button_color)]
 ]
 
 window = sg.Window('Накладная', layout, resizable=True, background_color='#FFEBCD',
-                   font=('Bahnschrift SemiBold', 10), size=(1000, 700))
+                   font=('Bahnschrift SemiBold', 10), size=(1000, 740))
 
 while True:
     event, values = window.read()
@@ -144,7 +146,20 @@ while True:
 
     if event == '_print_':
         generate_invoice(items, print_items, values['_container_'], values['_client_'])
-        sg.popup('Накладная сохранена', res_s, background_color=background_input_color, text_color='#000000')
+        sg.popup('Накладная сохранена на рабочем столе!', res_s, background_color=background_input_color, text_color='#000000')
 
     if event == '_list_items_':
         window['_price_'].update(items[f"{values['_list_items_']}"][4])
+
+    if event == '_edit_':
+        editRow = values['-TABLE-'][0]
+        window['_list_items_'].update(value=print_items[editRow][0])
+        window['_quantity_'].update(value=print_items[editRow][1])
+        window['_price_'].update(value=print_items[editRow][2])
+
+    if event == '_save_':
+        print_items[editRow] = [values['_list_items_'], values['_quantity_'], values['_price_']]
+        window['-TABLE-'].update(print_items)
+        window['_list_items_'].update('')
+        window['_quantity_'].update('')
+        window['_price_'].update('')
